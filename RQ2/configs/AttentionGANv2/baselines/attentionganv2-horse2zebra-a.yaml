@@ -1,0 +1,40 @@
+dataset:
+  name: 'horse2zebra'
+  path: '../../datasets/horse2zebra'
+  load: 143
+  crop: 128
+evaluation:
+  p_thres: 0.05
+  data:
+    - bsz: 1
+      name: 'horse2zebra'
+      path: '../../datasets/horse2zebra'
+      load: 256
+      crop: 256
+experiment: 'ImageTranslation'
+model:
+  G: 'ResnetGeneratorAttentionV2'
+  D: 'NLayerDiscriminatorAttentionV2'
+  lambda_A: 10.0
+  lambda_B: 10.0
+  lambda_idt: 0.5
+  opt: 'Adam'
+  opt_param:
+    lr: 2.0e-4
+    betas:
+      - 0.5
+      - 0.999
+  pool_size: 50
+  type: 'AttentionGANv2'
+hparam:
+  bsz: 1
+  iteration: 200 # epoch
+log:
+  freq: 1
+  path: './log/AttentionGANv2-BASE2-HORSE2ZEBRA-A'
+protection: null
+resource:  
+  gpu: true
+  ngpu: 2
+  worker: 4
+seed: 1234
