@@ -81,7 +81,7 @@ optional arguments:
   --normalize, -n     Normalize data.
 
 Example:
-python prepare_dataset.py /home/yan192/Data61/Attribution/GANDCTAnalysis/data -l tfrecords
+python prepare_dataset.py /data -l tfrecords
 ```
 
 ## Computing Statistics
