@@ -1,7 +1,6 @@
 # Copyright Protection and Accountability of Generative AI Attack, Watermarking, and Attribution
 Project source code of Copyright Protection and Accountability of Generative AI Attack, Watermarking, and Attribution
-
-
+This project mainly contains three parts: RQ1, RQ2, RQ3. Please follow the relative instructions to run experiments for each part. 
 
 
 ## RQ1
