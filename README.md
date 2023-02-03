@@ -90,6 +90,42 @@ python testwithattack.py --dataroot ./datasets/horse2zebra --name horse2zebra_pr
 
 
 ## RQ2 Trainingset Watermark
+### Fingerprint autoencoder training
+- Run, e.g.,
+  ```
+  python3 train.py \
+  --data_dir /path/to/images/ \
+  --image_resolution 128 \
+  --output_dir /path/to/output/ \
+  --fingerprint_length 100 \
+  --batch_size 64
+  ```
+
+
+
+## Fingerprint embedding and detection
+- For **fingerprint embedding**, run, e.g.,
+  ```
+  python3 embed_fingerprints.py \
+  --encoder_path /path/to/encoder/ \
+  --data_dir /path/to/images/ \
+  --use_celeba_preprocessing \
+  --image_resolution 128 \
+  --output_dir /path/to/output/ \
+  --identical_fingerprints \
+  --batch_size 64
+  ```
+  
+- For **fingerprint detection**, run, e.g.,
+  ```
+  python3 detect_fingerprints.py \
+  --decoder_path /path/to/decoder/ \
+  --data_dir /path/to/fingerprinted/images/ \
+  --image_resolution 128 \
+  --output_dir /path/to/output/ \
+  --batch_size 64
+  ```
+
 
 
 ## RQ2 GAN-Model Watermark
