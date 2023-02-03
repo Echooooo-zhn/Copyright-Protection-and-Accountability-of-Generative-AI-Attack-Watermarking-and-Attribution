@@ -9,7 +9,7 @@ Source project code of Copyright Protection of Image Generative Adversarial Netw
 
 **Datasets**
 
-celebA
+CelebA
 ```
 cd stargan
 bash download.sh celeba
@@ -21,7 +21,7 @@ cd cyclegan
 bash ./datasets/download_cyclegan_dataset.sh horse2zebra
 ```
 
-celebAhq
+CelebAhq
 ```
 cd starganv2
 bash download.sh celeba-hq-dataset
@@ -30,11 +30,12 @@ bash download.sh celeba-hq-dataset
 **Models**
 
 StarGAN
+[StarGAN repository](https://github.com/yunjey/stargan)
 ```
 bash download.sh pretrained-celeba-128x128
 ```
 StarGANv2
-[StarGAN repository](https://github.com/clovaai/stargan-v2)
+[StarGAN_V2 repository](https://github.com/clovaai/stargan-v2)
 ```
 cd starganv2
 bash download.sh pretrained-network-celeba-hq
@@ -87,3 +88,6 @@ python testwithattack.py --dataroot ./datasets/horse2zebra --name horse2zebra_cu
 # AttentionGAN Attack Test
 python testwithattack.py --dataroot ./datasets/horse2zebra --name horse2zebra_pretrained --model attention_gan --dataset_mode unaligned --norm instance --phase test --no_dropout --load_size 256 --crop_size 256 --batch_size 1 --gpu_ids 0 --num_test 100 --epoch latest
 ```
+
+
+## RQ2 Trainingset Watermark
