@@ -8,43 +8,51 @@ Source project code of Copyright Protection of Image Generative Adversarial Netw
 ### Datasets and Models
 
 **Datasets**
+
 celebA
 ```
 cd stargan
 bash download.sh celeba
 ```
 
-celebAhq_splited
+Horse2zebra
+```
+cd cyclegan
+bash ./datasets/download_cyclegan_dataset.sh horse2zebra
+```
+
+celebAhq
 ```
 cd starganv2
 bash download.sh celeba-hq-dataset
 ```
 
 **Models**
-**StarGAN 128x128**
+
+StarGAN
 ```
 bash download.sh pretrained-celeba-128x128
 ```
-**StarGANv2**
+StarGANv2
 [StarGAN repository](https://github.com/clovaai/stargan-v2)
 ```
 cd starganv2
 bash download.sh pretrained-network-celeba-hq
 ```
-**CycleGAN h2z Model**
+CycleGAN
  [CycleGAN official repository](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
 ```
 cd cyclegan
 bash ./scripts/download_cyclegan_model.sh horse2zebra
 ```
-**CUT h2z Models**
+CUT
  [CUT repository](https://github.com/taesungp/contrastive-unpaired-translation)
 ```
 cd CUT
 wget http://efrosgans.eecs.berkeley.edu/CUT/pretrained_models.tar
 tar -xf pretrained_models.tar
 ```
-**AttentionGAN h2z Model**
+AttentionGAN
  [AttentionGAN repository](https://github.com/Ha0Tang/AttentionGAN)
 ```
 cd attGAN
