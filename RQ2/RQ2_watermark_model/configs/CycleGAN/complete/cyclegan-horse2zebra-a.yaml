@@ -31,7 +31,7 @@ hparam:
   iteration: 200 # epoch
 log:
   freq: 1
-  path: './log/CycleGAN-COMP-HOESE2ZEBRA-A'
+  path: './log/CycleGAN2-COMP-HOESE2ZEBRA-A'
 protection:
   bbox:
     fn_inp:

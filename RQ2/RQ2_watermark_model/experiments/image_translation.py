@@ -1,7 +1,7 @@
 from experiments.base import Experiment
 from experiments.util import ImageWriter
 from pytorch_msssim import ssim as ssim_fn
-from torchvision import transforms
+from torchvision import transforms, utils
 from tqdm import tqdm
 import datasets
 import json
@@ -11,6 +11,7 @@ import numpy as np
 import os
 import tools
 import torch
+import random
 
 class ImageTranslation(Experiment):
     def __init__(self, config):
@@ -104,14 +105,16 @@ class ImageTranslation(Experiment):
             if self._step > 1:
                 self.model.update_lr()
 
-        
+        i = 0
         for _ in range(g_iter):
             real_A, real_B = next(self.data_loader)
             data = {'real_A': real_A, 'real_B': real_B}
-            # print(f'\n self.model: {self.config.model.type} \n self.train_count: {self.train_count} \n i: {i}')
+            if self.config.model.type  == 'CUT' and self.train_count == 0 and i == 0:
+                self.model.data_dependent_initialize(data)
+            i += 1
             self.model.update_g(data)
 
-        i = 0
+        
         for _ in range(d_iter):
             
             data = None
@@ -121,9 +124,8 @@ class ImageTranslation(Experiment):
                     'real_B': self.model.real_B,
                     'fake_B': self.model.fake_B.detach()
                 }
-                if self.config.model.type  == 'CUT' and self.train_count == 0 and i == 0:
-                    self.model.data_dependent_initialize(data)
-                    i += 1
+                
+                    
             else:
                 data = {
                     'real_A': self.model.real_A,
@@ -160,28 +162,47 @@ class ImageTranslation(Experiment):
                 self.fixed_B = real_B
             
             with torch.no_grad():
-                self.model.GA.eval()
-                self.model.GB.eval()
+                # print(f'\n{self.model.module.__name__}')
+                if hasattr(self.model, 'GA') and self.model.GA is not None:
+                    self.model.GA.eval()
+                    self.model.GB.eval()
+                    
+                    fake_B = self.model.GA(self.fixed_A)
+                    fake_A = self.model.GB(self.fixed_B)
+                    if type(self.model).__name__  == 'AttentionGANv2' or type(self.model.GA.module).__name__  == 'ResnetGeneratorAttentionV2':
+                        fake_B, _, _, _, _, _, _, _, _, _, _, \
+                        _, _, _, _, _, _, _, _, _, _, \
+                        _, _, _, _, _, _, _, _, _ = self.model.GA(self.fixed_A)
+                        
+                        fake_A, _, _, _, _, _, _, _, _, _, _, \
+                        _, _, _, _, _, _, _, _, _, _, \
+                        _, _, _, _, _, _, _, _, _= self.model.GB(self.fixed_B)
+                        
+                    self.model.GA.train()
+                    self.model.GB.train()
+                    fake_A = torch.clamp((fake_A + 1) / 2., 0, 1).detach().cpu()
+                    fake_B = torch.clamp((fake_B + 1) / 2., 0, 1).detach().cpu()
+                    
+                    samples = torch.cat([fake_A, fake_B], dim=0)
+                    self.logger.save_images(samples, self._step // self.config.log.freq)
+                    
+                else:
+                    self.model.G.eval()
+                    # fixed = torch.cat((self.fixed_A, self.fixed_B), dim=0)
+                    fixed = self.fixed_A
+                    fake = self.model.G(fixed)
+                    fake_B = fake[:self.fixed_A.size(0)]
+                    idt_B = fake[self.fixed_A.size(0):]
                 
-                fake_B = self.model.GA(self.fixed_A)
-                fake_A = self.model.GB(self.fixed_B)
-                if type(self.model).__name__  == 'AttentionGANv2' or type(self.model.GA.module).__name__  == 'ResnetGeneratorAttentionV2':
-                    fake_B, _, _, _, _, _, _, _, _, _, _, \
-                    _, _, _, _, _, _, _, _, _, _, \
-                    _, _, _, _, _, _, _, _, _ = self.model.GA(self.fixed_A)
+                    self.model.G.train()
+                    fake_B = torch.clamp((fake_B + 1) / 2., 0, 1).detach().cpu()
+                    idt_B = torch.clamp((idt_B + 1) / 2., 0, 1).detach().cpu()
                     
-                    fake_A, _, _, _, _, _, _, _, _, _, _, \
-                    _, _, _, _, _, _, _, _, _, _, \
-                    _, _, _, _, _, _, _, _, _= self.model.GB(self.fixed_B)
+                    samples = torch.cat([fake_B, idt_B], dim=0)
+                    self.logger.save_images(fake_B, self._step // self.config.log.freq)
                     
-                self.model.GA.train()
-                self.model.GB.train()
-                fake_A = torch.clamp((fake_A + 1) / 2., 0, 1).detach().cpu()
-                fake_B = torch.clamp((fake_B + 1) / 2., 0, 1).detach().cpu()
-
-            samples = torch.cat([fake_A, fake_B], dim=0)
-            self.logger.save_images(samples, self._step // self.config.log.freq)
-
+                    # utils.save_image(samples, f'./temp/{self._step // self.config.log.freq}.png')
+            print(self.model)
             state_dict = self.model.state_dict()
             state_dict['step'] = self._step
 
@@ -202,7 +223,10 @@ class ImageTranslation(Experiment):
         print('*** EVALUATION ***')
 
         if self.wbox:
-            bit_err_rate = self.model.loss_model.compute_ber(self.model.GB)
+            if self.model.GA is not None:
+                bit_err_rate = self.model.loss_model.compute_ber(self.model.GB)
+            else:
+                bit_err_rate = self.model.loss_model.compute_ber(self.model.G)
         else:
             bit_err_rate = float('nan')
 
@@ -215,8 +239,13 @@ class ImageTranslation(Experiment):
             image_writer = ImageWriter(sample_dir)
 
         metrics = {}
-        self.model.GA.eval()
-        self.model.GB.eval()
+        
+        if hasattr(self.model, 'GA') and self.model.GA is not None:
+            self.model.GA.eval()
+            self.model.GB.eval()
+        else:
+            self.model.G.eval()
+            
         for data in self.config.evaluation.data:
             loader = getattr(datasets, data['name'])(
                 path=data['path'],
@@ -234,51 +263,97 @@ class ImageTranslation(Experiment):
             if self.bbox:
                 stats = {'p': [], 'q': [], 'm': []}
             count = 0
-            for _, real_B in tqdm(
+            for real_A, real_B in tqdm(
                 loader,
                 desc=data['name'],
                 leave=False,
                 total=int(math.ceil(len(loader)/data['bsz']))
             ):
-                fake_A = self.model.GB(real_B)
-                if type(self.model).__name__  == 'AttentionGANv2' or type(self.model.GB.module).__name__  == 'ResnetGeneratorAttentionV2':
-                    fake_A, _, _, _, _, _, _, _, _, _, _, \
-                    _, _, _, _, _, _, _, _, _, _, \
-                    _, _, _, _, _, _, _, _, _ = self.model.GB(real_B)
+                if hasattr(self.model, 'GA') and self.model.GA is not None:
+                    fake_A = self.model.GB(real_B)
+                    # save_real = torch.clamp((real_B+ 1) / 2., 0, 1).detach().cpu()
+                    # utils.save_image(save_real, f'./input2/{random.randint(0,140)}.png')
+                    # utils.save_image(fake_A, f'./output2/{random.randint(0,140)}.png')
                     
-                fake_A = torch.clamp((fake_A + 1) / 2., 0, 1).detach().cpu()
-
-                if sample_dir:
-                    for i in range(fake_A.size(0)):
-                        image_writer(fake_A[i], suffix='gen')
-
-                if self.bbox:
-                    zwm = self.model.fn_inp(real_B)
-                    xwm = self.model.GB(zwm)
                     if type(self.model).__name__  == 'AttentionGANv2' or type(self.model.GB.module).__name__  == 'ResnetGeneratorAttentionV2':
-                        xwm, _, _, _, _, _, _, _, _, _, _, \
+                        fake_A, _, _, _, _, _, _, _, _, _, _, \
                         _, _, _, _, _, _, _, _, _, _, \
-                        _, _, _, _, _, _, _, _, _ = self.model.GB(zwm)
-                    zwm = torch.clamp((zwm + 1) / 2., 0, 1).detach()
-                    xwm = torch.clamp((xwm + 1) / 2., 0, 1).detach()
-                    ywm = self.model.fn_out(fake_A)
-                    ywm = torch.clamp((ywm + 1) / 2., 0, 1).detach()
-                    wm_x = apply_mask(xwm.cpu())
-                    wm_y = apply_mask(ywm.cpu())
+                        _, _, _, _, _, _, _, _, _ = self.model.GB(real_B)
+                        
+                    fake_A = torch.clamp((fake_A + 1) / 2., 0, 1).detach().cpu()
 
                     if sample_dir:
-                        for i in range(xwm.size(0)):
-                            image_writer(zwm[i], suffix='z')
-                            image_writer(xwm[i], suffix='wm')
+                        for i in range(fake_A.size(0)):
+                            image_writer(fake_A[i], suffix='gen')
 
-                    ssim = ssim_fn(wm_x, wm_y, data_range=1, size_average=False)
-                    p_value = tools.compute_matching_prob(wm_x, wm_y)
-                    match = p_value < self.config.evaluation.p_thres
+                    if self.bbox:
+                        zwm = self.model.fn_inp(real_B)
+                        xwm = self.model.GB(zwm)
+                        if type(self.model).__name__  == 'AttentionGANv2' or type(self.model.GB.module).__name__  == 'ResnetGeneratorAttentionV2':
+                            xwm, _, _, _, _, _, _, _, _, _, _, \
+                            _, _, _, _, _, _, _, _, _, _, \
+                            _, _, _, _, _, _, _, _, _ = self.model.GB(zwm)
+                        zwm = torch.clamp((zwm + 1) / 2., 0, 1).detach()
+                        xwm = torch.clamp((xwm + 1) / 2., 0, 1).detach()
+                        ywm = self.model.fn_out(fake_A)
+                        ywm = torch.clamp((ywm + 1) / 2., 0, 1).detach()
+                        wm_x = apply_mask(xwm.cpu())
+                        wm_y = apply_mask(ywm.cpu())
 
-                    stats['q'].append(ssim.detach().cpu())
-                    stats['p'].append(p_value)
-                    stats['m'].append(match)
-                to_pil_image(fake_A[0]).save(os.path.join(img_dir, f'{count}.png'))
+                        if sample_dir:
+                            for i in range(xwm.size(0)):
+                                image_writer(zwm[i], suffix='z')
+                                image_writer(xwm[i], suffix='wm')
+
+                        ssim = ssim_fn(wm_x, wm_y, data_range=1, size_average=False)
+                        p_value = tools.compute_matching_prob(wm_x, wm_y)
+                        match = p_value < self.config.evaluation.p_thres
+
+                        stats['q'].append(ssim.detach().cpu())
+                        stats['p'].append(p_value)
+                        stats['m'].append(match)
+                    to_pil_image(fake_A[0]).save(os.path.join(img_dir, f'{count}.png'))
+                else:
+                    
+                    # fake_A = self.model.G(real_B)
+                    # fake_A = torch.clamp((fake_A + 1) / 2., 0, 1).detach().cpu()
+                    fake_com = self.model.G(real_A)
+                    # fake_A = fake_com[:real_B.size(0)]
+                    fake_A = fake_com
+                
+                    fake_A = torch.clamp((fake_A + 1) / 2., 0, 1).detach().cpu()
+                    save_real = torch.clamp((real_A+ 1) / 2., 0, 1).detach().cpu()
+                    utils.save_image(save_real, f'./input/{random.randint(0,140)}.png')
+                    utils.save_image(fake_A, f'./output/{random.randint(0,140)}.png')
+
+                    if sample_dir:
+                        for i in range(fake_A.size(0)):
+                            image_writer(fake_A[i], suffix='gen')
+
+                    if self.bbox:
+                        zwm = self.model.fn_inp(real_A)
+                        xwm = self.model.G(zwm)
+                        zwm = torch.clamp((zwm + 1) / 2., 0, 1).detach()
+                        xwm = torch.clamp((xwm + 1) / 2., 0, 1).detach()
+                        ywm = self.model.fn_out(fake_A)
+                        ywm = torch.clamp((ywm + 1) / 2., 0, 1).detach()
+                        wm_x = apply_mask(xwm.cpu())
+                        wm_y = apply_mask(ywm.cpu())
+
+                        if sample_dir:
+                            for i in range(xwm.size(0)):
+                                image_writer(zwm[i], suffix='z')
+                                image_writer(xwm[i], suffix='wm')
+
+                        ssim = ssim_fn(wm_x, wm_y, data_range=1, size_average=False)
+                        p_value = tools.compute_matching_prob(wm_x, wm_y)
+                        match = p_value < self.config.evaluation.p_thres
+
+                        stats['q'].append(ssim.detach().cpu())
+                        stats['p'].append(p_value)
+                        stats['m'].append(match)
+                    to_pil_image(fake_A[0]).save(os.path.join(img_dir, f'{count}.png'))
+                    
                 count += 1
             
             metrics[data['name']] = {}

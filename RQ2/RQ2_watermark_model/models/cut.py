@@ -7,9 +7,11 @@ import networks
 import torch
 import torch.nn as nn
 from tools.loss import GANLoss, PatchNCELoss
+from torchvision import transforms, utils
+import random
 
 class CUT(Model):
-    def __init__(self, config, device=[torch.device('cpu'), ]):
+    def __init__(self, config, device=[torch.device('cpu'),]):
         super(CUT, self).__init__()
         
         # torch.autograd.set_detect_anomaly(True)
@@ -48,12 +50,12 @@ class CUT(Model):
         
         
         half_epoch = config.epoch // 2
-        linear_lr = lambda e: 1.0 - max(0, e - half_epoch) / half_epoch
+        self.linear_lr = lambda e: 1.0 - max(0, e - half_epoch) / half_epoch
         self.schedulerG = optim.lr_scheduler.LambdaLR(
-            self.optG, lr_lambda=linear_lr
+            self.optG, lr_lambda=self.linear_lr
         )
         self.schedulerD = optim.lr_scheduler.LambdaLR(
-            self.optD, lr_lambda=linear_lr
+            self.optD, lr_lambda=self.linear_lr
         )
         
         self.optF = None
@@ -82,6 +84,7 @@ class CUT(Model):
         return {
             'G': self.LossG.item(),
             'G_GAN': self.loss_G_GAN.item(),
+            'G/Sum': self.LossG.item(),
             'D_real': self.loss_D_real.item(),
             'D_fake': self.loss_D_fake.item(),
             'NCE': self.loss_NCE.item(),
@@ -95,17 +98,14 @@ class CUT(Model):
         self.fake = self.G(self.real)
         self.fake_B = self.fake[:self.real_A.size(0)]
         self.idt_B = self.fake[self.real_A.size(0):]
-        self.fake_B = torch.Tensor(self.fake_B)
-        print(f'fake_B device: {self.fake_B.device}')
-        # self.fake_detack = self.fake_B.detach()
         self.Fake= self.D(self.fake_B)
+        save_fake_B = torch.clamp((self.fake_B + 1) / 2., 0, 1).detach().cpu()
+        utils.save_image(save_fake_B, f'./temp1/{random.randint(0,1000)}.png')
 
     def forward_d(self, data):
         self.real_A = data['real_A']
         self.real_B = data['real_B']
         self.fake_B = data['fake_B']
-        
-        # self.fake_detack = self.fake_B.detach()
         fake = self.fake_B
         self.Fake = self.D(fake)
         self.Real= self.D(self.real_B)
@@ -125,6 +125,8 @@ class CUT(Model):
             
         loss_NCE_both = self.loss_NCE
         self.LossG = self.loss_G_GAN + loss_NCE_both
+        with open('loss_record.txt', 'a+') as f:
+            f.write(f'LossG: {self.LossG}\n')
 
     def compute_d_loss(self):
         # Fake; stop backprop to the generator by detaching fake_B
@@ -134,6 +136,8 @@ class CUT(Model):
         self.loss_D_real = loss_D_real.mean()
         # combine loss and calculate gradients
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
+        with open('loss_record.txt', 'a+') as f:
+            f.write(f'LossD: {self.loss_D}\n')
     
     def data_dependent_initialize(self, data):
         """
@@ -146,18 +150,27 @@ class CUT(Model):
         bs_per_gpu = data['real_A'].size(0) // gpu_num
         self.real_A = data['real_A'][:bs_per_gpu]
         self.real_B = data['real_B'][:bs_per_gpu]
-        self.forward_g(data)                    # compute fake images: G(A)
-        self.forward_d(data)
-        self.compute_d_loss().backward()                  # calculate gradients for D
-        self.compute_g_loss().backward()                   # calculate graidents for G
+        self.real = torch.cat((self.real_A, self.real_B), dim=0)
+        self.fake = self.G(self.real)
+        self.fake_B = self.fake[:self.real_A.size(0)]
+        self.idt_B = self.fake[self.real_A.size(0):]
+        self.Fake = self.D(self.fake_B)
+        self.Real = self.D(self.real_B)
+        self.compute_d_loss()
+        self.loss_D.backward(retain_graph=True)
+        self.compute_g_loss()
+        self.LossG.backward(retain_graph=True)
+        # self.update_g(data)
+        # self.update_d(data)
         if self.lambda_NCE > 0.0:
+            # print(f'\n self.F: {self.F}')
             self.optF = self.opt_fn(chain(
                 self.F.parameters(),
             ), **self.opt_param)
             self.schedulerF = optim.lr_scheduler.LambdaLR(
                 self.optF, lr_lambda=self.linear_lr
             )
-            self._modules['optD'] = self.optF
+            self._modules['optF'] = self.optF
     
     def set_requires_grad(self, nets, requires_grad=False):
         """Set requies_grad=Fasle for all the networks to avoid unnecessary computations
@@ -182,43 +195,39 @@ class CUT(Model):
     def update_g(self, data, update=True):
         self.forward_g(data)
         self.compute_g_loss()
-        self.set_requires_grad(self.D, False)
-        self.optG.zero_grad()
-        if self.update_num != 0:
-            self.optF.zero_grad()
-        self.LossG.backward(create_graph=True)
-        self.optG.step()
-        if self.update_num != 0:
+        # self.set_requires_grad(self.D, False)
+        if update:
+            
+            self.optG.zero_grad()
+            if self.update_num != 0:
+                self.optF.zero_grad()
+            # self.LossG.backward(create_graph=True)
+            self.LossG.backward()
             self.optG.step()
-        if self.update_num != 0:
-            self.optF.step()
+            if self.update_num != 0:
+                self.optF.step()
         self.update_num == 1
 
     def update_d(self, data):
         self.forward_d(data)
         self.compute_d_loss()
-        self.set_requires_grad(self.D, True)
+        # self.set_requires_grad(self.D, True)
         self.optD.zero_grad()
-        self.loss_D = self.compute_D_loss()
-        self.loss_D.backward(create_graph=True)
+        # self.loss_D = self.compute_d_loss()
+        self.loss_D.backward()
         self.optD.step()
         
     def calculate_NCE_loss(self, src, tgt):
         n_layers = len(self.nce_layers)
         feat_q = self.G(tgt, self.nce_layers, encode_only=True)
 
-        # if self.opt.flip_equivariance and self.flipped_for_equivariance:
-        #     feat_q = [torch.flip(fq, [3]) for fq in feat_q]
-
         feat_k = self.G(src, self.nce_layers, encode_only=True)
-        # print(feat_k)
-        # feat_k = feat_k.detach()
         feat_k_pool, sample_ids = self.F(feat_k, 256, None)
         feat_q_pool, _ = self.F(feat_q, 256, sample_ids)
 
         total_nce_loss = 0.0
         for f_q, f_k, crit, nce_layer in zip(feat_q_pool, feat_k_pool, self.criterionNCE, self.nce_layers):
             loss = crit(f_q, f_k) * self.lambda_NCE
-            total_nce_loss += loss.mean()
+            total_nce_loss = total_nce_loss + loss.mean()
 
         return total_nce_loss / n_layers

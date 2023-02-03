@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch.nn import init
+import os
 
 class Normalize(nn.Module):
 
@@ -48,7 +49,7 @@ def init_weights(net, init_type='normal', init_gain=0.02, debug=False):
 
     net.apply(init_func)  # apply the initialization function <init_func>
     
-def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[], debug=False, initialize_weights=True):
+def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[2], debug=False, initialize_weights=True):
     """Initialize a network: 1. register CPU/GPU device (with multi-GPU support); 2. initialize the network weights
     Parameters:
         net (network)      -- the network to be initialized
@@ -60,7 +61,8 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[], debug=False, i
     """
     if len(gpu_ids) > 0:
         assert(torch.cuda.is_available())
-        net.to(gpu_ids[0])
+        # net.to(gpu_ids[0])
+        net.to(device="cuda:2")
         # if not amp:
         # net = torch.nn.DataParallel(net, gpu_ids)  # multi-GPUs for non-AMP training
     if initialize_weights:
@@ -68,7 +70,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[], debug=False, i
     return net
 
 class PatchSampleF(nn.Module):
-    def __init__(self, use_mlp=False, init_type='normal', init_gain=0.02, nc=256, gpu_ids=[]):
+    def __init__(self, use_mlp=True, init_type='normal', init_gain=0.02, nc=256, gpu_ids=[2]):
         # potential issues: currently, we use the same patch_ids for multiple images in the batch
         super(PatchSampleF, self).__init__()
         self.l2norm = Normalize(2)
@@ -113,6 +115,7 @@ class PatchSampleF(nn.Module):
             if self.use_mlp:
                 mlp = getattr(self, 'mlp_%d' % feat_id)
                 x_sample = mlp(x_sample)
+                x_sample = x_sample.to(device="cuda:2")
             return_ids.append(patch_id)
             x_sample = self.l2norm(x_sample)
 
