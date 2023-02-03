@@ -1,5 +1,5 @@
-# Copyright_Protection_of_Image_GANs_Attack-Watermarks-Attribution
-Source project code of Copyright Protection of Image Generative Adversarial Networks: Attack, Watermarks, and Attribution
+# Copyright Protection and Accountability of Generative AI Attack, Watermarking, and Attribution
+Project source code of Copyright Protection and Accountability of Generative AI Attack, Watermarking, and Attribution
 
 
 
@@ -91,3 +91,18 @@ python testwithattack.py --dataroot ./datasets/horse2zebra --name horse2zebra_pr
 
 
 ## RQ2 Trainingset Watermark
+
+
+## RQ2 GAN-Model Watermark
+RQ2 GAN-Model watermark is implemented based on the  [GAN IPR Protection repository](https://github.com/dingsheng-ong/ipr-gan)
+
+### Train
+```bash
+$ cd RQ2/RQ2_watermark_model
+$ python train.py -c configs/<path-to-yaml-file>
+```
+### Evaluate
+```bash
+$ cd RQ2/RQ2_watermark_model
+$ python eval.py -l log/<directory> -s sample/
+```
