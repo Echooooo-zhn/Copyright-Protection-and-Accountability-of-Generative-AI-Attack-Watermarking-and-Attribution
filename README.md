@@ -154,7 +154,7 @@ data
  |--- B_ProGAN 	-> label 1
  	...
 ```
-[data_celebA](www.riri.com) (click to download) includes the generation results for styleganv2, stargan, starganv2, ddgan, and styleswing, and the real images from celebA dataset.
+[data_celebA](https://drive.google.com/file/d/11uu1OdWs-lI1fbBDEkNXh1HCACfwAD-s/view?usp=sharing) (click to download) includes the generation results for styleganv2, stargan, starganv2, ddgan, and styleswing, and the real images from celebA dataset.
 [data_h2z](https://drive.google.com/file/d/1EnVTR2Xmphh5UViTARQKA5NVQf1f9tyd/view?usp=sharing) (click to download) includes the zebra generation results for cyclegan, attentiongan and CUT, and the real zebra images from horse2zebra dataset
 
 ```
