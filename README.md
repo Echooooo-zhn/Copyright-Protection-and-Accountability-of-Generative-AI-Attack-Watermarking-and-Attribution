@@ -6,71 +6,76 @@ Source project code of Copyright Protection of Image Generative Adversarial Netw
 
 ## RQ1
 ### Datasets and Models
-**StarGAN Dataset 128x128**
+
+**Datasets**
+celebA
 ```
 cd stargan
 bash download.sh celeba
 ```
-**StarGAN Models 128x128**
+
+celebAhq_splited
+```
+cd starganv2
+bash download.sh celeba-hq-dataset
+```
+
+**Models**
+**StarGAN 128x128**
 ```
 bash download.sh pretrained-celeba-128x128
 ```
-
-**StarGANv2 Dataset and Models**
-
-Follow instruction in the [CycleGAN official repository](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix) for downloading their models and data.
-
-**CycleGAN Dataset and Models**
-
-Follow instruction in the [CycleGAN official repository](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix) for downloading their models and data.
-
-**CUT Models**
+**StarGANv2**
+[StarGAN repository](https://github.com/clovaai/stargan-v2)
 ```
-
+cd starganv2
+bash download.sh pretrained-network-celeba-hq
 ```
-
-
-**AttentionGAN Model**
-Follow instruction in the [AttentionGAN repository](https://github.com/Ha0Tang/AttentionGAN)
+**CycleGAN h2z Model**
+ [CycleGAN official repository](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
 ```
+cd cyclegan
+bash ./scripts/download_cyclegan_model.sh horse2zebra
+```
+**CUT h2z Models**
+ [CUT repository](https://github.com/taesungp/contrastive-unpaired-translation)
+```
+cd CUT
+wget http://efrosgans.eecs.berkeley.edu/CUT/pretrained_models.tar
+tar -xf pretrained_models.tar
+```
+**AttentionGAN h2z Model**
+ [AttentionGAN repository](https://github.com/Ha0Tang/AttentionGAN)
+```
+cd attGAN
 sh ./scripts/download_attentiongan_model.sh horse2zebra
 ```
 
 
-
 ### Attack Testing
 
-Here are bash commands for testing our vanilla attacks on each different architecture.
+Here are bash commands for testing vanilla attacks on each different architecture.
 ```
 # StarGAN Attack Test
 cd stargan
-python main.py --mode test --dataset CelebA --image_size 256 --c_dim 5 --selected_attrs Black_Hair Blond_Hair Brown_Hair Male Young --model_save_dir='stargan_celeba_256/models' --result_dir='stargan_celeba_256/results_test' --test_iters 200000 --batch_size 1
+python main.py --mode test --dataset CelebA --image_size 128 --c_dim 5 --selected_attrs Black_Hair Blond_Hair Brown_Hair Male Young --model_save_dir='stargan_celeba_128/models' --result_dir='stargan_celeba_256/results_test' --test_iters 200000 --batch_size 1
 
 # GANimation Attack Test
 cd ganimation
 python main.py --mode animation
 
-# pix2pixHD Attack Test
+# starGAN_V2 Attack Test
 cd pix2pixHD
-python test.py --name label2city_1024p --netG local --ngf 32 --resize_or_crop none
+python main.py --mode eval_attack --num_domains 2 --w_hpf 1 --resume_iter 100000  --train_img_dir data/celeba_hq/train --val_img_dir data/celeba_hq/val                --checkpoint_dir expr/checkpoints/celeba_hq --eval_dir expr/eval/celeba_hq --val_batch_size 1
 
 # CycleGAN Attack Test
+cd cyclegan
 python test.py --dataroot datasets/horse2zebra/testA --name horse2zebra_pretrained --model test --no_dropout
+
+# CUT Attack Test
+cd CUT
+python testwithattack.py --dataroot ./datasets/horse2zebra --name horse2zebra_cut_pretrained --CUT_mode CUT --phase test
+
+# AttentionGAN Attack Test
+python testwithattack.py --dataroot ./datasets/horse2zebra --name horse2zebra_pretrained --model attention_gan --dataset_mode unaligned --norm instance --phase test --no_dropout --load_size 256 --crop_size 256 --batch_size 1 --gpu_ids 0 --num_test 100 --epoch latest
 ```
-
-If you want to change the attack method being used, look into the attack.py scripts in each architecture folder and change the number of iterations, attack magnitude and step size. You can also re-run the class transferring and blur evasion experiments on StarGAN by commenting/uncommenting lines 54-61 in stargan/main.py or modifying the stargan/solver.py script to change the attack type.
-
-In order to change attack types for GANimation you can modify lines 386-470 by commenting out the vanilla attack and uncommenting the attack you want to run. 
-
-## GAN Adversarial Training
-In order to run G+D adversarial training on StarGAN run:
-```
-# StarGAN Adversarial Training
-python main.py --mode train --dataset CelebA --image_size 256 --c_dim 5 --sample_dir stargan_both/samples --log_dir stargan_both/logs --model_save_dir stargan_both/models --result_dir stargan_both/results --selected_attrs Black_Hair Blond_Hair Brown_Hair Male Young
-```
-If you wish to run vanilla training or generator adversarial training, comment/uncomment the appropriate lines (l.44-49) in stargan/main.py
-
-The G+D adversarially trained model we used in the paper can be downloaded [here](https://drive.google.com/open?id=1xMM7q4w3lczO6Iskj8CWwmNWHBer9RBP).
-
-## Image Translation Network Implementations
-We use code from [StarGAN](https://github.com/yunjey/stargan), [GANimation](https://github.com/vipermu/ganimation), [pix2pixHD](https://github.com/NVIDIA/pix2pixHD), [CycleGAN](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix) and [advertorch](https://github.com/BorealisAI/advertorch). These are all great repositories and we encourage you to check them out and cite them in your work.
