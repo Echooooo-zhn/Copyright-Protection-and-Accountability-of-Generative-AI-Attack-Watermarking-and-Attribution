@@ -1,0 +1,66 @@
+## Research Question 2
+
+
+## RQ2 Trainingset Watermark
+
+### Setup:
+The setup of research question 2 -- trainingset watermark is based on the experiments in paper:
+<br>Artificial Fingerprinting for Generative Models: Rooting Deepfake Attribution in Training Data</br>
+**[[Paper]](https://arxiv.org/pdf/2007.08457.pdf)** **[[Github Repo]](https://github.com/ningyu1991/ArtificialGANFingerprints)**
+
+### Fingerprint autoencoder training
+- Run, e.g.,
+  ```
+  python3 train.py \
+  --data_dir /path/to/images/ \
+  --image_resolution 128 \
+  --output_dir /path/to/output/ \
+  --fingerprint_length 100 \
+  --batch_size 64
+  ```
+
+
+
+## Fingerprint embedding and detection
+- For **fingerprint embedding**, run, e.g.,
+  ```
+  python3 embed_fingerprints.py \
+  --encoder_path /path/to/encoder/ \
+  --data_dir /path/to/images/ \
+  --use_celeba_preprocessing \
+  --image_resolution 128 \
+  --output_dir /path/to/output/ \
+  --identical_fingerprints \
+  --batch_size 64
+  ```
+  
+- For **fingerprint detection**, run, e.g.,
+  ```
+  python3 detect_fingerprints.py \
+  --decoder_path /path/to/decoder/ \
+  --data_dir /path/to/fingerprinted/images/ \
+  --image_resolution 128 \
+  --output_dir /path/to/output/ \
+  --batch_size 64
+  ```
+
+
+
+## RQ2 GAN-Model Watermark
+
+### Setup:
+The setup of research question 2 -- GAN-model watermark is based on the experiments in paper:
+<br>Protecting Intellectual Property of Generative Adversarial Networks from Ambiguity Attack</br>
+**[[Paper]](https://openaccess.thecvf.com/content/CVPR2021/html/Ong_Protecting_Intellectual_Property_of_Generative_Adversarial_Networks_From_Ambiguity_Attacks_CVPR_2021_paper.html)** **[[Github Repo]](https://github.com/dingsheng-ong/ipr-gan)**
+
+
+### Train
+```bash
+$ cd RQ2/RQ2_watermark_model
+$ python train.py -c configs/<path-to-yaml-file>
+```
+### Evaluate
+```bash
+$ cd RQ2/RQ2_watermark_model
+$ python eval.py -l log/<directory> -s sample/
+```
